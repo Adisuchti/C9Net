@@ -1,0 +1,39 @@
+# --- MAINTENANCE MODE ---
+RewriteEngine On
+# uncomment the line below and replace with your actual public IP address
+# RewriteCond %{REMOTE_ADDR} !^1\.1\.1\.1$
+RewriteCond %{REMOTE_ADDR} !^::1$
+# Allow access to the maintenance page itself so we don't cause an infinite loop
+RewriteCond %{REQUEST_URI} !/maintenance.html$ [NC]
+# Allow images and CSS so the maintenance page looks correct
+RewriteCond %{REQUEST_URI} !\.(jpe?g?|png|gif|css)$ [NC]
+# Redirect all other traffic to the maintenance page
+RewriteRule .* /maintenance.html [R=302,L]
+# ------------------------
+
+Options -Indexes
+
+# Block access to database config file
+<Files "cinder9_db.php">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order Allow,Deny
+        Deny from all
+    </IfModule>
+</Files>
+
+# Allow direct access to avatar images and assets
+<IfModule mod_authz_core.c>
+    <FilesMatch "(?i)\.(jpe?g|png|gif|webp|mp4)$">
+        Require all granted
+    </FilesMatch>
+</IfModule>
+
+<IfModule !mod_authz_core.c>
+    <FilesMatch "(?i)\.(jpe?g|png|gif|webp|mp4)$">
+        Order Allow,Deny
+        Allow from all
+    </FilesMatch>
+</IfModule>

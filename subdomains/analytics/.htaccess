@@ -1,0 +1,3 @@
+<If "%{HTTP_HOST} != 'analytics.cinder9.com'">
+    Deny from all
+</If>

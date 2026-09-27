@@ -1,0 +1,69 @@
+# Database credentials (protected via .htaccess)
+# This file should NEVER be committed. If accidentally committed, rotate credentials immediately.
+/cinder9_db.php
+**/cinder9_db.php
+**/connection_creds.php
+**/db_credentials.*
+**/*credentials*.php
+**/.env
+
+# Images directory - ALL contents (large binary files, ~several GB)
+/images/
+
+# PDFs and documents directory - ALL contents
+/pdf/
+
+# Campaign 2 map data (large map files)
+/views/Campaign_02/mapData/
+
+# Subdomains - ignore all except analytics
+/subdomains/camouflage/
+/subdomains/private/
+/subdomains/publictools/
+
+# SQL dumps - ignore all except db/ schema files
+.context/arma_inventories.sql
+**/*.sql
+!db/*.sql
+
+# Large binary files
+*.zip
+*.tar
+*.gz
+*.rar
+*.7z
+*.mp4
+*.webm
+*.mp3
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# PHP error logs
+*.log
+error_log
+
+# Cache files
+*.cache
+
+# Dependencies (if using Composer)
+/vendor/
+composer.lock
+
+# PHPbb Forum
+views/forum/*
+!views/forum/phpbb_bridge.php
