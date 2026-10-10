@@ -10,6 +10,13 @@ if (!isLoggedIn()) {
 
 validateCsrfToken();
 
+$marketStmt = $pdo->prepare("SELECT Var_Value FROM condition_variables WHERE Var_Name = 'Market_Enabled'");
+$marketStmt->execute();
+if ($marketStmt->fetchColumn() != 1 && $_SESSION['user_id'] !== -1) {
+    echo json_encode(['success' => false, 'error' => 'Market is currently disabled']);
+    exit();
+}
+
 $input = json_decode(file_get_contents("php://input"), true);
 
 $quantity = $input['quantity'];
@@ -18,7 +25,6 @@ $itemId = $input['itemId'];
 $isTeamMode = false;
 $teamId = isset($input['teamId']) ? (int)$input['teamId'] : 0;
 $inventoryId = $_SESSION['inventory_id'];
-$inventoryMoney = $_SESSION['inventory_money'];
 
 if ($teamId > 0 && isset($input['inventoryId'])) {
     $teamStmt = $pdo->prepare("SELECT Fireteam_Name, leader_player_id, team_inventory_id FROM team_hierarchy WHERE Fireteam_Id = ?");
@@ -55,11 +61,9 @@ try {
     // Start transaction
     $pdo->beginTransaction();
     
-    if ($isTeamMode) {
-        $moneyStmt = $pdo->prepare("SELECT Inventory_Money FROM inventories WHERE Inventory_Id = ? FOR UPDATE");
-        $moneyStmt->execute([$inventoryId]);
-        $inventoryMoney = (float)$moneyStmt->fetchColumn();
-    }
+    $moneyStmt = $pdo->prepare("SELECT Inventory_Money FROM inventories WHERE Inventory_Id = ? FOR UPDATE");
+    $moneyStmt->execute([$inventoryId]);
+    $inventoryMoney = (float)$moneyStmt->fetchColumn();
 
     // get item type from market
     $typeQuery = "SELECT custom_item_types.Custom_Item_Type FROM market
@@ -112,11 +116,21 @@ try {
     }
 
     // Get item details from market
-    $marketQuery = "SELECT Market_Item_Class, Purchase_Price, Available_Quantity, Ammo_Count 
+    $marketQuery = "SELECT Market_Item_Class, Purchase_Price, Available_Quantity, Ammo_Count, tier 
                 FROM market WHERE Market_item_Id = ?";
     $marketStmt = $pdo->prepare($marketQuery);
     $marketStmt->execute([$itemId]);
     $item = $marketStmt->fetch();
+
+    if ($item) {
+        $tierQuery = "SELECT Var_Value FROM condition_variables WHERE Var_Name = 'current_tier'";
+        $currentTier = $pdo->query($tierQuery)->fetchColumn() ?: 1;
+
+        if ($item['tier'] > $currentTier && $_SESSION['user_id'] !== -1) {
+            echo json_encode(['success' => false, 'error' => 'This item is not yet available']);
+            exit();
+        }
+    }
 
     if (!$item) {
         echo json_encode(['success' => false, 'error' => "Item not found"]);

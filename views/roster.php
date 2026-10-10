@@ -60,11 +60,25 @@ if ($activeTeamId > 0) {
             $teamNotebook = $noteStmt->fetchColumn() ?: '';
             
             $isTeamMember = false;
+            $isTeamAuthorized = false;
             if (isset($_SESSION['user_id'])) {
-                $userProfileStmt = $pdo->prepare("SELECT Profile_Id FROM player_profiles WHERE User_Id = ? AND Assignment = ?");
-                $userProfileStmt->execute([$_SESSION['user_id'], $activeTeamId]);
-                if ($userProfileStmt->fetch()) {
+                $userProfileStmt = $pdo->prepare("SELECT Profile_Id, Role, Assignment FROM player_profiles WHERE User_Id = ?");
+                $userProfileStmt->execute([$_SESSION['user_id']]);
+                $userProfile = $userProfileStmt->fetch(PDO::FETCH_ASSOC);
+
+                if ($_SESSION['user_id'] == -1) {
+                    $isTeamAuthorized = true;
                     $isTeamMember = true;
+                } else if ($userProfile) {
+                    if ($userProfile['Assignment'] == $activeTeamId) {
+                        $isTeamMember = true;
+                    }
+                    if ($userProfile['Assignment'] == $activeTeamId || $activeTeam['leader_player_id'] == $userProfile['Profile_Id']) {
+                        $role = strtolower(trim($userProfile['Role']));
+                        if ($role === 'officer' || $role === 'squadleader' || $role === 'squadleaders' || $activeTeam['leader_player_id'] == $userProfile['Profile_Id']) {
+                            $isTeamAuthorized = true;
+                        }
+                    }
                 }
             }
             
@@ -138,6 +152,42 @@ $marketDataByClass = [];
 $interchangeableSet = [];
 
 if ($inventoryId > 0) {
+    // Determine inventory type
+    $inventoryType = 1; // Default
+    $invTypeStmt = $pdo->prepare("SELECT Inventory_Type FROM inventories WHERE Inventory_Id = ?");
+    $invTypeStmt->execute([$inventoryId]);
+    $invData = $invTypeStmt->fetch(PDO::FETCH_ASSOC);
+    if ($invData) {
+        $inventoryType = $invData['Inventory_Type'];
+    }
+
+    // Get current item count per type
+    $currentCountQuery = "SELECT Custom_Item_Type, SUM(Item_Quantity) AS quantity
+    FROM (
+        SELECT DISTINCT
+            content_items.Content_Item_Id,
+            custom_item_types.Custom_Item_Type,
+            content_items.Item_Quantity
+        FROM content_items
+        LEFT JOIN items ON items.item_class = content_items.Item_Class
+        LEFT JOIN item_types ON item_types.Item_Type_Id = items.Item_Type
+        LEFT JOIN custom_item_types ON custom_item_types.Original_Item_Type = item_types.item_classification
+        WHERE Inventory_Id = ?
+    ) AS subquery
+    GROUP BY Custom_Item_Type;";
+    $currentCountStmt = $pdo->prepare($currentCountQuery);
+    $currentCountStmt->execute([$inventoryId]);
+    $currentCounts = $currentCountStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Fetch category limits for this inventory type
+    $limitsQuery = "SELECT Item_Type, Item_Limit FROM item_type_inventory_limit WHERE Inventory_Type = ?";
+    $limitsStmt = $pdo->prepare($limitsQuery);
+    $limitsStmt->execute([$inventoryType]);
+    $categoryLimits = [];
+    while ($row = $limitsStmt->fetch(PDO::FETCH_ASSOC)) {
+        $categoryLimits[$row['Item_Type']] = (int)$row['Item_Limit'];
+    }
+
     // Fetch items from the database
     $query = "SELECT DISTINCT content_items.Content_Item_Id, content_items.Inventory_Id,
         content_items.Item_Class, content_items.Item_Quantity, content_items.Item_Properties,
@@ -176,6 +226,29 @@ if ($inventoryId > 0) {
         }
     }
 
+    // Reorder categories to ensure weapons come first, followed by other known categories, and Unknown last
+    $categoryOrder = ['Primary_Weapon', 'Sidearm', 'Launcher', 'Melee', 'T-Doll', 'Ammo', 'Attachments', 'Equipment', 'Throwables'];
+    $orderedGroups = [];
+    foreach ($categoryOrder as $cat) {
+        if (isset($groupedItems[$cat])) {
+            $orderedGroups[$cat] = $groupedItems[$cat];
+            unset($groupedItems[$cat]);
+        } elseif (in_array($cat, ['Primary_Weapon', 'Sidearm'])) {
+            $orderedGroups[$cat] = []; // Always show Primary and Sidearm
+        }
+    }
+    // Add any remaining categories except Unknown
+    foreach ($groupedItems as $cat => $items) {
+        if ($cat !== 'Unknown') {
+            $orderedGroups[$cat] = $items;
+        }
+    }
+    // Add Unknown at the very end
+    if (isset($groupedItems['Unknown'])) {
+        $orderedGroups['Unknown'] = $groupedItems['Unknown'];
+    }
+    $groupedItems = $orderedGroups;
+
     // Find ammo for weapons
     $ammoItems = $groupedItems['Ammo'] ?? [];
 
@@ -186,7 +259,7 @@ if ($inventoryId > 0) {
     }
 
     // Build market link lookup & selling prices
-    $marketQuery = "SELECT Market_Item_Class, Selling_Price FROM market WHERE Market = 0";
+    $marketQuery = "SELECT Market_item_Id, Market_Item_Class, Selling_Price, Ammo_Count FROM market WHERE Market = 0";
     $marketStmt = $pdo->prepare($marketQuery);
     $marketStmt->execute();
     $marketItems = $marketStmt->fetchAll();
@@ -194,7 +267,11 @@ if ($inventoryId > 0) {
     foreach ($marketItems as $marketItem) {
         $classKey = strtoupper(trim((string)$marketItem['Market_Item_Class']));
         if (!isset($marketDataByClass[$classKey])) {
-            $marketDataByClass[$classKey] = $marketItem['Selling_Price'];
+            $marketDataByClass[$classKey] = [
+                'Selling_Price' => $marketItem['Selling_Price'],
+                'Market_item_Id' => $marketItem['Market_item_Id'],
+                'Ammo_Count' => $marketItem['Ammo_Count']
+            ];
         }
     }
 
@@ -293,8 +370,10 @@ include '../includes/header.php';
                     }
                 ?>
                 <?php if ($leaderProfile): ?>
-                    <img src="<?php echo $leaderImage; ?>" alt="Leader Profile" class="roster-leader-avatar" onerror="this.onerror=null; this.src='<?php echo $imageBaseUrl; ?>/profiles/default.png';">
-                    <p class="auto-fit-name"><?php echo htmlspecialchars($leaderProfile['Profile_Name']); ?></p>
+                    <a href="profile.php?id=<?php echo $leaderProfileId; ?>" style="display: contents; text-decoration: none; color: inherit;">
+                        <img src="<?php echo $leaderImage; ?>" alt="Leader Profile" class="roster-leader-avatar" onerror="this.onerror=null; this.src='<?php echo $imageBaseUrl; ?>/profiles/default.png';">
+                        <p class="auto-fit-name"><?php echo htmlspecialchars($leaderProfile['Profile_Name']); ?></p>
+                    </a>
                 <?php else: ?>
                     <div class="roster-no-leader">
                         No Leader
@@ -326,31 +405,44 @@ include '../includes/header.php';
                     <div class="roster-inventory-left-pane">
                     <?php if ($inventoryId > 0): ?>
                         <div class="inv-right-pane w-100 h-100">
-                            <!-- Category Navigation -->
-                            <div class="inv-categories">
-                                <?php 
-                                $firstCategory = true;
-                                foreach ($groupedItems as $type => $typeItems): 
-                                    $iconName = strtolower(str_replace(' ', '_', $type));
-                                    $iconPath = __DIR__ . '/../images/icons/categories/' . $iconName . '.svg';
-                                ?>
-                                    <button class="inv-category-btn <?php echo $firstCategory ? 'active' : ''; ?>" data-target="cat-<?php echo htmlspecialchars($type); ?>" onclick="switchCategory(this)" title="<?php echo htmlspecialchars($type); ?>">
-                                        <?php 
-                                        if (file_exists($iconPath)) {
-                                            include $iconPath;
-                                        } else {
-                                            include __DIR__ . '/../images/icons/categories/unknown.svg';
-                                        }
-                                        ?>
-                                    </button>
-                                <?php 
-                                $firstCategory = false;
-                                endforeach; 
+                            <!-- Category Navigation & Global Actions -->
+                            <div class="inv-categories-wrapper preview-inventory-1">
+                                <div class="inv-categories preview-inventory-2">
+                                    <?php 
+                                    $firstCategory = true;
+                                    foreach ($groupedItems as $type => $typeItems): 
+                                        $iconName = strtolower(str_replace(' ', '_', $type));
+                                        $iconPath = __DIR__ . '/../images/icons/categories/' . $iconName . '.svg';
+                                    ?>
+                                        <button class="inv-category-btn <?php echo $firstCategory ? 'active' : ''; ?>" data-target="cat-<?php echo htmlspecialchars($type); ?>" onclick="switchCategory(this)" title="<?php echo htmlspecialchars($type); ?>">
+                                            <?php 
+                                            if (file_exists($iconPath)) {
+                                                include $iconPath;
+                                            } else {
+                                                include __DIR__ . '/../images/icons/categories/unknown.svg';
+                                            }
+                                            ?>
+                                        </button>
+                                    <?php 
+                                    $firstCategory = false;
+                                    endforeach; 
+                                    
+                                    if (empty($groupedItems)) {
+                                        echo "<button class='inv-category-btn active'>?</button>";
+                                    }
+                                    ?>
+                                </div>
                                 
-                                if (empty($groupedItems)) {
-                                    echo "<button class='inv-category-btn active'>?</button>";
-                                }
-                                ?>
+                                <?php if ($isTeamAuthorized): ?>
+                                <div class="inv-global-actions preview-inventory-3">
+                                    <button class="btn-industrial" onclick="showRepackAllOverlay()" title="Repack All Magazines">
+                                        Repack Mags
+                                    </button>
+                                    <button class="btn-industrial" onclick="showRefillAllOverlay()" title="Refill All Magazines">
+                                        Refill Mags
+                                    </button>
+                                </div>
+                                <?php endif; ?>
                             </div>
 
                             <!-- Items Container -->
@@ -362,6 +454,9 @@ include '../includes/header.php';
                                 <div class="inv-items-container <?php echo $isWeapon ? 'is-weapon-container' : 'is-grid-container'; ?> <?php echo $firstCategory ? 'active-container' : ''; ?>" id="cat-<?php echo htmlspecialchars($type); ?>">
                                     <?php foreach ($typeItems as $item): ?>
                                         <div class="inv-card">
+                                            <?php if (!$isWeapon && $item['Item_Quantity'] > 1): ?>
+                                                <div class="inv-card-qty-badge"><?php echo $item['Item_Quantity']; ?>x</div>
+                                            <?php endif; ?>
                                             <div class="inv-card-image">
                                                 <?php
                                                     $imgPaths = resolveItemImagePaths($hasMedication, $imageBaseUrl, $item['Item_Class'], $item['Custom_Item_Type']);
@@ -371,17 +466,56 @@ include '../includes/header.php';
                                                 ?>
                                                 <img src="<?php echo file_exists($fileCheckPath) ? $imagePath : $defaultImage; ?>" 
                                                      alt="<?php echo htmlspecialchars($item['Item_Class']); ?>" loading="lazy">
+                                                <?php if (!$isWeapon && !empty($item['Item_Properties'])): ?>
+                                                    <div class="inv-card-ammo-badge">
+                                                        Ammo: <?php 
+                                                            $displayAmmo = htmlspecialchars($item['Item_Properties']);
+                                                            $classKey = strtoupper(trim((string)$item['Item_Class']));
+                                                            if (isset($marketDataByClass[$classKey]) && isset($marketDataByClass[$classKey]['Ammo_Count']) && $marketDataByClass[$classKey]['Ammo_Count'] > 0) {
+                                                                $displayAmmo .= '/' . $marketDataByClass[$classKey]['Ammo_Count'];
+                                                            }
+                                                            echo $displayAmmo;
+                                                        ?>
+                                                    </div>
+                                                <?php endif; ?>
+                                                <?php if ($isTeamAuthorized): ?>
+                                                    <?php
+                                                        $itemClassKey = strtoupper(trim((string)$item['Item_Class']));
+                                                        $isInterchangeable = isset($interchangeableSet[$itemClassKey]);
+                                                        $sellPrice = isset($marketDataByClass[$itemClassKey]) ? (float)$marketDataByClass[$itemClassKey]['Selling_Price'] : 0;
+                                                        $inMarket = isset($marketDataByClass[$itemClassKey]) ? (int)$marketDataByClass[$itemClassKey]['Market_item_Id'] : 0;
+                                                        
+                                                        $ammosOverlay = [];
+                                                        if ($isWeapon) {
+                                                            $ammosOverlay = findCompatibleAmmo($item['Item_Class'], $ammoItems, $compatibleMap);
+                                                            foreach ($ammosOverlay as &$ammoOverlayItem) {
+                                                                $oImgPaths = resolveItemImagePaths($hasMedication, $imageBaseUrl, $ammoOverlayItem['Item_Class'], $ammoOverlayItem['Custom_Item_Type']);
+                                                                $aPath = $oImgPaths['imagePath'];
+                                                                $dImage = $oImgPaths['defaultImage'];
+                                                                $fCheck = $oImgPaths['fileCheckPath'];
+                                                                $ammoOverlayItem['imageUrl'] = file_exists($fCheck) ? $aPath : $dImage;
+                                                            }
+                                                            unset($ammoOverlayItem);
+                                                        }
+                                                    ?>
+                                                    <button class="inv-card-plus-btn" 
+                                                        onclick="showItemDetailsOverlay(
+                                                            <?php echo $item['Content_Item_Id']; ?>, 
+                                                            '<?php echo addslashes(htmlspecialchars($item['Item_Class'])); ?>', 
+                                                            '<?php echo addslashes(htmlspecialchars($item['Item_Display_Name'] ?? $item['Item_Class'])); ?>',
+                                                            <?php echo $item['Item_Quantity']; ?>, 
+                                                            '<?php echo addslashes(htmlspecialchars($item['Item_Properties'])); ?>',
+                                                            <?php echo $sellPrice; ?>, 
+                                                            <?php echo $isInterchangeable ? 'true' : 'false'; ?>,
+                                                            <?php echo $inMarket; ?>,
+                                                            '<?php echo file_exists($fileCheckPath) ? $imagePath : $defaultImage; ?>',
+                                                            <?php echo htmlspecialchars(json_encode($ammosOverlay), ENT_QUOTES, 'UTF-8'); ?>
+                                                        )">
+                                                        +
+                                                    </button>
+                                                <?php endif; ?>
                                             </div>
                                             <div class="inv-card-content">
-                                                <div>
-                                                    <h3 class="inv-card-title" title="<?php echo htmlspecialchars($item['Item_Display_Name']); ?>">
-                                                        <?php echo htmlspecialchars($item['Item_Display_Name']); ?>
-                                                    </h3>
-                                                </div>
-                                                
-                                                <?php if (!$isWeapon && $item['Item_Quantity'] > 1): ?>
-                                                    <div class="inv-card-qty-badge"><?php echo $item['Item_Quantity']; ?>x</div>
-                                                <?php endif; ?>
 
                                                 <?php if ($isWeapon): ?>
                                                     <?php $ammos = findCompatibleAmmo($item['Item_Class'], $ammoItems, $compatibleMap); ?>
@@ -409,19 +543,34 @@ include '../includes/header.php';
                                                         </div>
                                                     <?php endif; ?>
                                                 <?php else: ?>
-                                                    <?php if (!empty($item['Item_Properties'])): ?>
-                                                        <div class="roster-item-prop">
-                                                            Prop: <?php echo htmlspecialchars($item['Item_Properties']); ?>
-                                                        </div>
-                                                    <?php else: ?>
-                                                        <div class="mt-auto"></div>
-                                                    <?php endif; ?>
+                                                    <div class="mt-auto"></div>
                                                 <?php endif; ?>
 
                                                 <!-- No actions for Team Inventory in roster preview (read-only for now unless specified) -->
                                             </div>
                                         </div>
                                     <?php endforeach; ?>
+                                    
+                                    <?php 
+                                    // Add free slot cards if applicable
+                                    if (isset($categoryLimits[$type])) {
+                                        $currentQty = 0;
+                                        foreach ($currentCounts as $cc) {
+                                            if ($cc['Custom_Item_Type'] === $type) {
+                                                $currentQty = (int)$cc['quantity'];
+                                                break;
+                                            }
+                                        }
+                                        $freeSlots = max(0, $categoryLimits[$type] - $currentQty);
+                                        for ($i = 0; $i < $freeSlots; $i++):
+                                    ?>
+                                        <div class="inv-card free-slot">
+                                            <span>Free Slot</span>
+                                        </div>
+                                    <?php 
+                                        endfor;
+                                    }
+                                    ?>
                                 </div>
                             <?php 
                             $firstCategory = false;
@@ -517,24 +666,29 @@ include '../includes/header.php';
         return formatted.join('.') + ' Cr';
     }
 
-    // Auto-fit leader name
-    function autoFitLeaderName() {
-        const nameEl = document.querySelector('.auto-fit-name');
-        if (nameEl) {
+    // Auto-fit texts
+    function autoFitText(selector, defaultSize) {
+        const el = document.querySelector(selector);
+        if (el) {
             // Reset to max size to accurately recalculate
-            nameEl.style.fontSize = '3rem';
-            let fontSize = 3.0;
+            el.style.fontSize = defaultSize + 'rem';
+            let fontSize = defaultSize;
             
             // Loop until it fits (with a 2px buffer for rendering differences)
-            while (nameEl.scrollWidth > nameEl.clientWidth + 2 && fontSize > 0.5) {
+            while (el.scrollWidth > el.clientWidth + 2 && fontSize > 0.5) {
                 fontSize -= 0.1;
-                nameEl.style.fontSize = fontSize + 'rem';
+                el.style.fontSize = fontSize + 'rem';
             }
         }
     }
 
+    function fitAllTexts() {
+        autoFitText('.auto-fit-name', 3.0);
+        autoFitText('.roster-leader-team-name', 2.0);
+    }
+
     document.addEventListener("DOMContentLoaded", function() {
-        autoFitLeaderName();
+        fitAllTexts();
         
         // Horizontal scroll for members section
         const membersSection = document.querySelector('.roster-members-section');
@@ -548,12 +702,12 @@ include '../includes/header.php';
         }
     });
     
-    window.addEventListener("resize", autoFitLeaderName);
+    window.addEventListener("resize", fitAllTexts);
     
     if (document.fonts) {
-        document.fonts.ready.then(autoFitLeaderName);
+        document.fonts.ready.then(fitAllTexts);
     } else {
-        window.addEventListener("load", autoFitLeaderName);
+        window.addEventListener("load", fitAllTexts);
     }
 </script>
 
@@ -634,6 +788,16 @@ include '../includes/header.php';
         .catch(err => showError("Error: " + err.message));
     }
 </script>
+
+<?php 
+// Get inventories for transfer dropdown
+$inventoriesQuery = "SELECT Inventory_Id, Inventory_Name from inventories WHERE Inventory_Id != :inventory_id";
+$inventoriesStmt = $pdo->prepare($inventoriesQuery);
+$inventoriesStmt->bindParam(':inventory_id', $inventoryId, PDO::PARAM_INT);
+$inventoriesStmt->execute();
+$inventories = $inventoriesStmt->fetchAll();
+?>
+<?php include '../includes/inventory_modals.php'; ?>
 
 <?php include '../includes/footer.php'; ?>
 

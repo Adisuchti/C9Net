@@ -10,6 +10,8 @@ if (!isLoggedIn() || $_SESSION['user_id'] !== -1) {
     exit();
 }
 
+validateCsrfToken();
+
 try {
     // Check if file was uploaded
     if (!isset($_FILES['image']) || $_FILES['image']['error'] !== UPLOAD_ERR_OK) {
@@ -107,3 +109,4 @@ try {
     ]);
 }
 ?>
+

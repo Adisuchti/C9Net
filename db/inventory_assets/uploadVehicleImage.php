@@ -13,6 +13,8 @@ if (!isLoggedIn()) {
     exit();
 }
 
+validateCsrfToken();
+
 $userId = $_SESSION['user_id'] ?? null;
 $canEditDashboard = false;
 $isAdmin = ($_SESSION['username'] === 'admin');
@@ -122,3 +124,4 @@ try {
     ]);
 }
 ?>
+

@@ -18,7 +18,12 @@ $itemClass = $input['itemClass'] ?? '';
 $quantity = (int)($input['quantity'] ?? 0);
 $itemState = $input['itemState'] ?? '';
 
-$inventoryId = $_SESSION['inventory_id'];
+$inventoryId = isset($input['sourceInventoryId']) ? (int)$input['sourceInventoryId'] : $_SESSION['inventory_id'];
+
+if (!isUserAuthorizedForInventory($pdo, $_SESSION['user_id'], $inventoryId)) {
+    echo json_encode(['success' => false, 'error' => 'Unauthorized for this inventory']);
+    exit();
+}
 
 if ($quantity <= 0) {
     echo json_encode(['success' => false, 'error' => 'Invalid quantity']);
@@ -128,7 +133,9 @@ try {
     ]);
 
     // Update session money
-    $_SESSION['inventory_money'] += $totalEarnings;
+    if ($inventoryId == $_SESSION['inventory_id']) {
+        $_SESSION['inventory_money'] += $totalEarnings;
+    }
 
     $pdo->commit();
 

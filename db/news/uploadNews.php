@@ -8,6 +8,8 @@ if (!isLoggedIn() || $_SESSION['user_id'] !== -1) {
     exit();
 }
 
+validateCsrfToken();
+
 if (!isset($_FILES['pdf'])) {
     http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'No file uploaded']);
@@ -17,10 +19,13 @@ if (!isset($_FILES['pdf'])) {
 $file = $_FILES['pdf'];
 $uploadDir = $_POST['directory'];
 
-$actualUploadDir = $uploadDir;
-if (strpos($uploadDir, '../pdf/') === 0) {
-    $actualUploadDir = '../' . $uploadDir;
+$allowedDirs = ['../pdf/docs/', '../pdf/news/'];
+if (!in_array($uploadDir, $allowedDirs)) {
+    echo json_encode(['success' => false, 'error' => 'Invalid directory']);
+    exit();
 }
+
+$actualUploadDir = '../' . $uploadDir;
 
 if (!file_exists($actualUploadDir)) {
     mkdir($actualUploadDir, 0777, true);
@@ -32,7 +37,11 @@ $allowedTypes = [
     'video/mp4' => 'mp4'
 ];
 
-if (!array_key_exists($file['type'], $allowedTypes)) {
+$finfo = finfo_open(FILEINFO_MIME_TYPE);
+$mimeType = finfo_file($finfo, $file['tmp_name']);
+finfo_close($finfo);
+
+if (!array_key_exists($mimeType, $allowedTypes)) {
     echo json_encode([
         'success' => false, 
         'error' => 'File must be a PDF, PNG or MP4'

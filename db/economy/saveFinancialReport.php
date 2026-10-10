@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../connection.php';
-require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/financialReportCascade.php';
 
 header('Content-Type: application/json');

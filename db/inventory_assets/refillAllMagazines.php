@@ -11,12 +11,13 @@ if (!isLoggedIn()) {
 
 validateCsrfToken();
 
-if (!isset($_SESSION['inventory_id'])) {
-    echo json_encode(['success' => false, 'error' => 'No active inventory session.']);
+$input = json_decode(file_get_contents("php://input"), true);
+$inventoryId = isset($input['sourceInventoryId']) ? (int)$input['sourceInventoryId'] : (isset($_SESSION['inventory_id']) ? $_SESSION['inventory_id'] : 0);
+
+if (!isUserAuthorizedForInventory($pdo, $_SESSION['user_id'], $inventoryId)) {
+    echo json_encode(['success' => false, 'error' => 'Unauthorized for this inventory']);
     exit();
 }
-
-$inventoryId = $_SESSION['inventory_id'];
 
 try {
     $pdo->beginTransaction();
@@ -89,7 +90,9 @@ try {
         $logStmt->execute([$inventoryId, $rItem['class'], $rItem['quantity'], 'refill_all']);
     }
 
-    $_SESSION['inventory_money'] -= $totalCost;
+    if ($inventoryId == $_SESSION['inventory_id']) {
+        $_SESSION['inventory_money'] -= $totalCost;
+    }
 
     // 5. Update items
     $deleteItemStmt = $pdo->prepare("DELETE FROM content_items WHERE Content_Item_Id = ?");

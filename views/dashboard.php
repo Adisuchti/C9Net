@@ -780,13 +780,9 @@ include '../includes/toast.php';
         const imagePath = '../images/vehicles/' + asset.ClassName.toUpperCase() + '.PNG';
         const assetId = asset.Asset_Id || asset.Id;
 
-        return `<div class="dashboard-tile dashboard-asset-tile" style="position: relative;" draggable="${canEditDashboard}" data-asset-id="${assetId}"
+        return `<div class="dashboard-tile dashboard-asset-tile" draggable="${canEditDashboard}" data-asset-id="${assetId}"
                     ondragstart="${canEditDashboard ? `onAssetDragStart(event, ${assetId})` : 'return false'}">
                     <div class="dashboard-tile-image">
-                        ${canEditDashboard ? `<div class="dashboard-asset-actions" style="position:absolute; top:5px; right:5px; z-index:10;">
-                            <button class="dashboard-icon-btn edit" onclick="showAssetEdit(${assetId})" title="Edit Asset">&#9998;</button>
-                            <button class="dashboard-icon-btn delete" onclick="deleteAsset(${assetId}, '${escapeHtml(escapeJsString(asset.Name))}')" title="Delete Asset">&#10005;</button>
-                        </div>` : ''}
                         <img src="${imagePath}" alt="${escapeHtml(asset.Name)}" loading="lazy"
                              onerror="this.src='../images/vehicles/VEHICLE.PNG';">
                     </div>
@@ -794,6 +790,10 @@ include '../includes/toast.php';
                         <span class="dashboard-tile-name"><span class="dashboard-tile-qty">&times;${asset.Quantity}</span> ${escapeHtml(asset.Name)}</span>
                         <span class="dashboard-tile-sub">${escapeHtml(asset.ClassName)}</span>
                     </div>
+                    ${canEditDashboard ? `<div class="dashboard-asset-actions" style="display: flex; flex-direction: column; gap: 5px; margin-left: auto; border-left: 1px solid rgba(255,255,255,0.1); padding-left: 10px;">
+                        <button class="dashboard-icon-btn edit" onclick="showAssetEdit(${assetId})" title="Edit Asset">&#9998;</button>
+                        <button class="dashboard-icon-btn delete" onclick="deleteAsset(${assetId}, '${escapeHtml(escapeJsString(asset.Name))}')" title="Delete Asset">&#10005;</button>
+                    </div>` : ''}
                 </div>`;
     }
 
@@ -809,10 +809,6 @@ include '../includes/toast.php';
 
         el.innerHTML = `
             <div class="dashboard-tile-image">
-                ${canEditDashboard ? `<div class="dashboard-asset-actions" style="position:absolute; top:5px; right:5px; z-index:10;">
-                    <button class="dashboard-icon-btn edit" onclick="showAssetEdit(${assetId})" title="Edit Asset">&#9998;</button>
-                    <button class="dashboard-icon-btn delete" onclick="deleteAsset(${assetId}, '${escapeHtml(escapeJsString(asset.Name))}')" title="Delete Asset">&#10005;</button>
-                </div>` : ''}
                 <img src="${imagePath}" alt="${escapeHtml(asset.Name)}" loading="lazy"
                      onerror="this.src='../images/vehicles/VEHICLE.PNG';">
             </div>
@@ -820,6 +816,10 @@ include '../includes/toast.php';
                 <span class="dashboard-tile-name"><span class="dashboard-tile-qty">&times;${asset.Quantity}</span> ${escapeHtml(asset.Name)}</span>
                 <span class="dashboard-tile-sub">${escapeHtml(asset.ClassName)}</span>
             </div>
+            ${canEditDashboard ? `<div class="dashboard-asset-actions" style="display: flex; flex-direction: column; gap: 5px; margin-left: auto; border-left: 1px solid rgba(255,255,255,0.1); padding-left: 10px;">
+                <button class="dashboard-icon-btn edit" onclick="showAssetEdit(${assetId})" title="Edit Asset">&#9998;</button>
+                <button class="dashboard-icon-btn delete" onclick="deleteAsset(${assetId}, '${escapeHtml(escapeJsString(asset.Name))}')" title="Delete Asset">&#10005;</button>
+            </div>` : ''}
         `;
 
         if (canEditDashboard) {

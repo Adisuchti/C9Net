@@ -801,7 +801,7 @@ include '../includes/toast.php';
             report_data: reportData
         };
 
-        fetch('../db/market_assets/saveFinancialReport.php', {
+        fetch('../db/economy/saveFinancialReport.php', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -825,7 +825,7 @@ include '../includes/toast.php';
         if (!activeReportId) return;
         if (!confirm('Are you sure you want to delete this financial report?')) return;
 
-        fetch('../db/market_assets/deleteFinancialReport.php', {
+        fetch('../db/economy/deleteFinancialReport.php', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'

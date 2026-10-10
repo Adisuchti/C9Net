@@ -25,7 +25,12 @@ if ($quantity <= 0) {
     exit();
 }
 
-$sourceInventoryId = $_SESSION['inventory_id'];
+$sourceInventoryId = isset($input['sourceInventoryId']) ? (int)$input['sourceInventoryId'] : $_SESSION['inventory_id'];
+
+if (!isUserAuthorizedForInventory($pdo, $_SESSION['user_id'], $sourceInventoryId)) {
+    echo json_encode(['success' => false, 'error' => 'Unauthorized for this inventory']);
+    exit();
+}
 try {
     // Start transaction
     $pdo->beginTransaction();

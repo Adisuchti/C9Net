@@ -9,12 +9,13 @@ if (!isLoggedIn()) {
     exit();
 }
 
-if (!isset($_SESSION['inventory_id'])) {
-    echo json_encode(['success' => false, 'error' => 'No active inventory session.']);
+$input = json_decode(file_get_contents("php://input"), true);
+$inventoryId = isset($input['sourceInventoryId']) ? (int)$input['sourceInventoryId'] : (isset($_SESSION['inventory_id']) ? $_SESSION['inventory_id'] : 0);
+
+if (!isUserAuthorizedForInventory($pdo, $_SESSION['user_id'], $inventoryId)) {
+    echo json_encode(['success' => false, 'error' => 'Unauthorized for this inventory']);
     exit();
 }
-
-$inventoryId = $_SESSION['inventory_id'];
 
 try {
     $itemQuery = "SELECT ci.Content_Item_Id, ci.Item_Class, ci.Item_Quantity, ci.Item_Properties, m.Purchase_Price, m.Ammo_Count 

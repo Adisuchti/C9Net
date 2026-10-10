@@ -8,6 +8,8 @@ if (!isLoggedIn() || $_SESSION['user_id'] !== -1) {
     exit();
 }
 
+validateCsrfToken();
+
 if (!isset($_FILES['image'])) {
     http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'No file uploaded']);
@@ -24,16 +26,18 @@ if (!file_exists($uploadDir)) {
 $allowedTypes = [
     'image/png' => 'png',
     'image/jpeg' => 'jpg',
-    'image/jpg' => 'jpg',
     'image/gif' => 'gif',
-    'image/webp' => 'webp',
-    'image/svg+xml' => 'svg'
+    'image/webp' => 'webp'
 ];
 
-if (!array_key_exists($file['type'], $allowedTypes)) {
+$finfo = finfo_open(FILEINFO_MIME_TYPE);
+$mimeType = finfo_file($finfo, $file['tmp_name']);
+finfo_close($finfo);
+
+if (!array_key_exists($mimeType, $allowedTypes)) {
     echo json_encode([
         'success' => false,
-        'error' => 'File must be an image (PNG, JPG, GIF, WebP, or SVG)'
+        'error' => 'File must be an image (PNG, JPG, GIF, WebP)'
     ]);
     exit();
 }

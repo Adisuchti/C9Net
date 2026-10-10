@@ -22,7 +22,13 @@ if (!isset($input['targetInventoryId']) || !isset($input['amount'])) {
 
 $targetInventoryId = (int)$input['targetInventoryId'];
 $amount = (int)$input['amount'];
-$sourceInventoryId = $_SESSION['inventory_id'];
+$sourceInventoryId = isset($input['sourceInventoryId']) ? (int)$input['sourceInventoryId'] : $_SESSION['inventory_id'];
+
+if (!isUserAuthorizedForInventory($pdo, $_SESSION['user_id'], $sourceInventoryId)) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'error' => 'Unauthorized for this inventory']);
+    exit();
+}
 
 if ($amount <= 0) {
     http_response_code(400);
@@ -35,7 +41,7 @@ try {
     $pdo->beginTransaction();
 
     // Get source inventory money
-    $sourceQuery = "SELECT Inventory_Money FROM inventories WHERE Inventory_Id = ?";
+    $sourceQuery = "SELECT Inventory_Money FROM inventories WHERE Inventory_Id = ? FOR UPDATE";
     $sourceStmt = $pdo->prepare($sourceQuery);
     $sourceStmt->execute([$sourceInventoryId]);
     $sourceMoney = $sourceStmt->fetchColumn();
@@ -50,7 +56,7 @@ try {
     }
 
     // Get target inventory
-    $targetQuery = "SELECT Inventory_Money FROM inventories WHERE Inventory_Id = ?";
+    $targetQuery = "SELECT Inventory_Money FROM inventories WHERE Inventory_Id = ? FOR UPDATE";
     $targetStmt = $pdo->prepare($targetQuery);
     $targetStmt->execute([$targetInventoryId]);
     $targetMoney = $targetStmt->fetchColumn();
@@ -88,7 +94,9 @@ try {
     ]);
 
     // Update session money if needed
-    $_SESSION['inventory_money'] -= $amount;
+    if ($sourceInventoryId == $_SESSION['inventory_id']) {
+        $_SESSION['inventory_money'] -= $amount;
+    }
 
     $pdo->commit();
     echo json_encode(['success' => true, 'error' => 'null']);

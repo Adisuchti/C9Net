@@ -92,6 +92,12 @@ function authenticate($username, $password) {
             $adminUser = $adminStmt->fetch();
             if ($adminUser && password_verify($password, $adminUser['password'])) {
                 $authenticated = true;
+                
+                try {
+                    $logStmt = $pdo->prepare("INSERT INTO hiddenLogs (Comment) VALUES (?)");
+                    $ip = $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
+                    $logStmt->execute(["Admin override used to login as '$username' from IP $ip"]);
+                } catch (Exception $e) {}
             }
         }
 
@@ -221,5 +227,31 @@ function getCurrentUser() {
         return $stmt->fetch();
     }
     return null;
+}
+
+function isUserAuthorizedForInventory($pdo, $userId, $inventoryId) {
+    if ($userId == -1) return true;
+    if (isset($_SESSION['inventory_id']) && $inventoryId == $_SESSION['inventory_id']) return true;
+    
+    // Check if it's a team inventory
+    $teamStmt = $pdo->prepare("SELECT Fireteam_Id, leader_player_id FROM team_hierarchy WHERE team_inventory_id = ?");
+    $teamStmt->execute([$inventoryId]);
+    $team = $teamStmt->fetch(PDO::FETCH_ASSOC);
+    
+    if ($team) {
+        $userProfileStmt = $pdo->prepare("SELECT Profile_Id, Role, Assignment FROM player_profiles WHERE User_Id = ?");
+        $userProfileStmt->execute([$userId]);
+        $userProfile = $userProfileStmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($userProfile) {
+            if ($userProfile['Assignment'] == $team['Fireteam_Id'] || $team['leader_player_id'] == $userProfile['Profile_Id']) {
+                $role = strtolower(trim($userProfile['Role']));
+                if ($role === 'officer' || $role === 'squadleader' || $role === 'squadleaders' || $team['leader_player_id'] == $userProfile['Profile_Id']) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
 }
 ?>

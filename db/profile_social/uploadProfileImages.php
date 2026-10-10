@@ -8,6 +8,8 @@ if (!isLoggedIn()) {
     exit();
 }
 
+validateCsrfToken();
+
 $profileId = isset($_POST['profileId']) ? (int)$_POST['profileId'] : 0;
 
 // Check if user owns this profile
@@ -47,9 +49,14 @@ foreach ($_FILES['images']['tmp_name'] as $key => $tmp_name) {
         exit();
     }
     
-    $file_ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
     
-    if (!in_array($file_ext, ['jpg', 'jpeg', 'png', 'PNG', 'JPG', 'JPEG'])) {
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mimeType = finfo_file($finfo, $file_tmp);
+    finfo_close($finfo);
+    
+    $allowedMimes = ['image/jpeg', 'image/png'];
+    
+    if (!in_array($mimeType, $allowedMimes)) {
         echo json_encode([
             'success' => false,
             'error' => "$file_name: Only JPG and PNG files are allowed"

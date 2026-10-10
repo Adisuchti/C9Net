@@ -9,6 +9,8 @@ if (!isLoggedIn()) {
     exit();
 }
 
+validateCsrfToken();
+
 $mapName = $_GET['mapName'] ?? '';
 
 if (empty($mapName)) {
@@ -37,3 +39,4 @@ echo json_encode([
     'manifestUrl' => '/funkySvgViewer/rasterizationData/' . $safeName . '/manifest.json',
     'manifest' => $manifest
 ]);
+

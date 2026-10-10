@@ -1255,12 +1255,14 @@ body.no-scroll {
     border: 3px solid var(--c9-gold);
     object-fit: contain;
     box-shadow: 0 4px 15px rgba(255, 184, 0, 0.3);
+    flex-shrink: 0;
 }
 
 .roster-leader-team-logo {
     width: 70%;
     height: auto;
     object-fit: contain;
+    flex-shrink: 0;
 }
 
 .roster-leader-team-name {
@@ -1270,6 +1272,10 @@ body.no-scroll {
     margin: 0;
     text-transform: uppercase;
     letter-spacing: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    width: 100%;
+    flex-shrink: 0;
 }
 
 /* Details Pane: Right 75% of Main Pane */
@@ -3520,7 +3526,6 @@ body {
     flex-grow: 1;
     display: flex;
     flex-direction: column;
-    gap: 20px;
 }
 
 .dashboard-bottom-row {
@@ -4015,6 +4020,7 @@ body {
     overflow: hidden;
     width: 100%;
     text-align: center;
+    flex-shrink: 0;
 }
 
 .roster-no-leader {
@@ -4463,7 +4469,6 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 10px;
 }
 
 .inv-details-img {
@@ -11213,6 +11218,7 @@ body {
     border-radius: 8px;
     width: 100%;
     box-sizing: border-box;
+    flex-shrink: 0;
 }
 
 .roster-team-finance-label {

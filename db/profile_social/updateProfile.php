@@ -10,6 +10,8 @@ if (!isLoggedIn() || $_SESSION['user_id'] !== -1) {
     exit();
 }
 
+validateCsrfToken();
+
 $data = json_decode(file_get_contents('php://input'), true);
 
 if (!isset($data['profileId']) || !isset($data['profileName'])) {
@@ -78,3 +80,4 @@ try {
     echo json_encode(['success' => false, 'error' => 'Database error: ' . $e->getMessage()]);
 }
 ?>
+

@@ -9,6 +9,8 @@ if (!isLoggedIn()) {
     exit();
 }
 
+validateCsrfToken();
+
 $profileId = isset($_POST['profileId']) ? (int)$_POST['profileId'] : 0;
 
 // Check if user owns this profile
@@ -111,3 +113,4 @@ if (count($uploaded) > 0) {
     ]);
 }
 ?>
+

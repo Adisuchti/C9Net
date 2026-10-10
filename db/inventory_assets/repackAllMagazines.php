@@ -11,7 +11,13 @@ if (!isLoggedIn()) {
 
 validateCsrfToken();
 
-$inventoryId = $_SESSION['inventory_id'];
+$input = json_decode(file_get_contents("php://input"), true);
+$inventoryId = isset($input['sourceInventoryId']) ? (int)$input['sourceInventoryId'] : $_SESSION['inventory_id'];
+
+if (!isUserAuthorizedForInventory($pdo, $_SESSION['user_id'], $inventoryId)) {
+    echo json_encode(['success' => false, 'error' => 'Unauthorized for this inventory']);
+    exit();
+}
 
 try {
     $pdo->beginTransaction();

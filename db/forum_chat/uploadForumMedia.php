@@ -8,6 +8,8 @@ if (!isLoggedIn()) {
     exit();
 }
 
+validateCsrfToken();
+
 $postId = isset($_POST['postId']) ? (int)$_POST['postId'] : 0;
 if (!$postId || !isset($_FILES['media'])) {
     http_response_code(400);
@@ -38,3 +40,4 @@ if (move_uploaded_file($file['tmp_name'], $targetPath)) {
     echo json_encode(['success' => false, 'error' => 'Upload failed']);
 }
 ?>
+

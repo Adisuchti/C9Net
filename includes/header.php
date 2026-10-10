@@ -130,7 +130,7 @@ $previewAppUrl = '..';
 <body>
     <header data-last-update="<?php echo time(); ?>" class="header-preview <?php echo $isAdmin ? 'header-admin' : 'header-user'; ?>">
         <div class="header-content">
-            <h1>C9 PREVIEW <?php if ($isAdmin) echo "Admin"; ?></h1>
+            <h1>C9 IntraNet <?php if ($isAdmin) echo "Admin"; ?></h1>
             <nav>
                 <ul class="header-nav-links">
                         <li><a href="<?php echo $previewAppUrl; ?>/views/home.php" class="<?php echo isActivePage('home') ? 'active' : ''; ?>">

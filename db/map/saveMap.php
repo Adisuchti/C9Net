@@ -10,6 +10,8 @@ if (!isLoggedIn() || $_SESSION['user_id'] !== -1) {
     exit();
 }
 
+validateCsrfToken();
+
 // Check if POST data was dropped (usually due to post_max_size being exceeded)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($_POST) && $_SERVER['CONTENT_LENGTH'] > 0) {
     $maxSize = ini_get('post_max_size');
@@ -55,7 +57,7 @@ if (!$sizeColsExist) {
         $pdo->exec("ALTER TABLE maps ADD COLUMN size_km_y DECIMAL(10,2) DEFAULT NULL COMMENT 'Map height in kilometers'");
         $sizeColsExist = true;
     } catch (Exception $e) {
-        // Columns can't be added — proceed without them
+        // Columns can't be added â€” proceed without them
     }
 }
 
@@ -157,7 +159,7 @@ try {
 
         // Auto-calculate pixel dimensions and resolution from the heightmap image
         if ($heightmapPath && $heightmapPath !== $currentMap['heightmap_path']) {
-            // New heightmap was uploaded — recalculate
+            // New heightmap was uploaded â€” recalculate
             $fullPath = __DIR__ . '/../' . $heightmapPath;
             $imgInfo = getimagesize($fullPath);
             if ($imgInfo) {
@@ -183,3 +185,4 @@ try {
 } catch (Exception $e) {
     echo json_encode(['success' => false, 'error' => $e->getMessage()]);
 }
+

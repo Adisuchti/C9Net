@@ -33,9 +33,9 @@ try {
         throw new Exception("Item not found");
     }
 
-    // Verify the item belongs to the logged-in user's inventory
-    if ($_SESSION['user_id'] !== -1 && $item['Inventory_Id'] != $_SESSION['inventory_id']) {
-        throw new Exception("Unauthorized - you can only modify your own items");
+    // Verify the item belongs to an authorized inventory
+    if (!isUserAuthorizedForInventory($pdo, $_SESSION['user_id'], $item['Inventory_Id'])) {
+        throw new Exception("Unauthorized for this inventory");
     }
 
     // Compute shortest path cost using Dijkstra's algorithm
@@ -194,7 +194,9 @@ try {
     ]);
 
     $pdo->commit();
-    $_SESSION['inventory_money'] -= $totalCost;
+    if ($item['Inventory_Id'] == $_SESSION['inventory_id']) {
+        $_SESSION['inventory_money'] -= $totalCost;
+    }
     
     echo json_encode(['success' => true]);
 

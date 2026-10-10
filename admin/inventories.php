@@ -203,7 +203,7 @@ include '../includes/toast.php';
         const quantity = document.getElementById("amount_" + inventoryId).value;
         const data = { inventoryId: inventoryId, amount: quantity };
 
-        fetch("../db/inventory_assets/addMoney.php", {
+        fetch("../db/economy/addMoney.php", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(data)
@@ -340,7 +340,7 @@ include '../includes/toast.php';
         const finalAmount = currentBulkAction === 'punishment' ? -Math.abs(amount) : Math.abs(amount);
         const data = { inventoryIds: selectedIds, amount: finalAmount };
 
-        fetch("../db/inventory_assets/bulkUpdateMoney.php", {
+        fetch("../db/economy/bulkUpdateMoney.php", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(data)

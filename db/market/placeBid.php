@@ -143,29 +143,32 @@ try {
         $description .= "\n**Ends:** {$listing['End_Date']}";
     }
 
-    $webhookUrl = "https://discord.com/api/webhooks/1434170569439318121/PZ8gTm_kK27XMeY1n-veb4_XYrqapiLjVVU4Hpzi-jCz-XMifya_3NMFS5MM4-BBVk80";
-    $message = [
-        "embeds" => [
-            [
-                "title" => "New Bid on Auction",
-                "description" => $description,
-                "color" => 15844367, // Gold color
-                "timestamp" => date('c')
+    $webhookUrl = defined('DISCORD_WEBHOOK_URL') ? DISCORD_WEBHOOK_URL : '';
+    
+    if ($webhookUrl) {
+        $message = [
+            "embeds" => [
+                [
+                    "title" => "New Bid on Auction",
+                    "description" => $description,
+                    "color" => 15844367, // Gold color
+                    "timestamp" => date('c')
+                ]
             ]
-        ]
-    ];
+        ];
 
-    $ch = curl_init($webhookUrl);
-    curl_setopt($ch, CURLOPT_POST, 1);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($message));
-    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-    $response = curl_exec($ch);
-    if (curl_errno($ch)) {
-        error_log('Discord webhook error (player market bid): ' . curl_error($ch));
+        $ch = curl_init($webhookUrl);
+        curl_setopt($ch, CURLOPT_POST, 1);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($message));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        $response = curl_exec($ch);
+        if (curl_errno($ch)) {
+            error_log('Discord webhook error (player market bid): ' . curl_error($ch));
+        }
+        curl_close($ch);
     }
-    curl_close($ch);
 
     echo json_encode(['success' => true, 'error' => 'null']);
 } catch (Exception $e) {

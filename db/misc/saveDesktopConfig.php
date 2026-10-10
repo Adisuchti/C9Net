@@ -8,6 +8,8 @@ if (!isLoggedIn()) {
     exit();
 }
 
+validateCsrfToken();
+
 $input = json_decode(file_get_contents("php://input"), true);
 
 if (!isset($input['shortcuts'])) {
@@ -73,3 +75,4 @@ try {
     echo json_encode(['success' => false, 'error' => $e->getMessage()]);
 }
 ?>
+

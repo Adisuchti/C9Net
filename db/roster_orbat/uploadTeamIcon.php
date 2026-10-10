@@ -10,6 +10,8 @@ if (!isLoggedIn() || $_SESSION['user_id'] !== -1) {
     exit();
 }
 
+validateCsrfToken();
+
 try {
     if (!isset($_POST['teamId']) || empty($_POST['teamId'])) {
         throw new Exception('Team ID is required');
@@ -78,3 +80,4 @@ try {
         'error' => $e->getMessage()
     ]);
 }
+

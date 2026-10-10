@@ -229,9 +229,9 @@ include '../includes/toast.php';
         if (!confirm("Are you sure you want to delete this item?")) return;
         
         let x = document.getElementById("quantity_" + itemId);
-        const data = { quantity: x.value, itemId: itemId, targetInventoryId: <?php echo $inventoryId; ?> };
+        const data = { quantity: 0, itemId: itemId, inventoryId: <?php echo $inventoryId; ?> };
 
-        fetch("../db/inventory_assets/removeItem.php", {
+        fetch("../db/inventory_assets/changeQuantity.php", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(data)
@@ -275,7 +275,7 @@ include '../includes/toast.php';
         const state = document.getElementById('state_' + itemId).value;
         const data = { itemId: itemId, state: parseInt(state), inventoryId: <?php echo $inventoryId; ?> };
         
-        fetch('../db/inventory_assets/changeState.php', {
+        fetch('../db/misc/changeState.php', {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(data)
